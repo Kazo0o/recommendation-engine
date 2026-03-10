@@ -13,13 +13,17 @@ def train_model():
     df = pd.read_sql("""
         SELECT user_id,
                COUNT(item_id) as total_clicks,
-               AVG(score) as avg_score
+               AVG(interaction_score) as avg_score
         FROM interactions
         GROUP BY user_id
     """, engine)
 
+    if df.empty or len(df) < 3: # KMeans with n_clusters=3 needs at least 3 points
+        print("Not enough data to train. Skipping this run.")
+        return
+
     # start mlflow experiment
-    mlflow.set_tracking_uri('http://mlflow:5000')
+    mlflow.set_tracking_uri("http://mlflow:5000")
     mlflow.set_experiment('rec_engine_experiment')
     with mlflow.start_run():
         # simple clustering model

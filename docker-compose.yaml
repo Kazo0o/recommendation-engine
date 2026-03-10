@@ -18,7 +18,20 @@ services:
     container_name: mlflow
     ports:
       - "5000:5000"
-    command: mlflow server --backend-store-uri postgresql://root:root@postgres:5432/mlflow_db --default-artifact-root ./mlruns --host 0.0.0.0
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://root:root@postgres:5432/mlflow_db
+      --artifacts-destination ./mlruns
+      --host 0.0.0.0
+    environment:
+      - MLFLOW_HTTP_SERVER_PROMETHEUS_EXPORTER_ENABLED=false
+      - GUNICORN_CMD_ARGS=--forwarded-allow-ips="*" --proxy-allow-from="*"
+      - MLFLOW_SERVER_ALLOWED_HOSTS=*
+      - MLFLOW_SERVER_CORS_ALLOWED_ORIGINS=*
+      - MLFLOW_SERVER_X_FRAME_OPTIONS=NONE
+      - MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE=true
+    volumes:
+      - ./mlruns:/opt/airflow/dags/mlruns # Shared volume
     depends_on:
       - postgres
 
@@ -48,13 +61,16 @@ services:
       - DB_HOST=postgres
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://root:root@postgres:5432/airflow_db
-      - AIRFLOW__CORE__FERNET_KEY=-urofmd_V45RqJZz2eyzoMD_xSbONUH6wF4OvJ4XO4Q=
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
       - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - PYTHONPATH=/opt/airflow/dags
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./core:/opt/airflow/dags/core
+      - ./mlruns:/opt/airflow/dags/mlruns # Match the MLflow path
     command: standalone
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - postgres
